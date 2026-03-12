@@ -1,0 +1,256 @@
+// This is your Prisma schema file
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ENUMS ────────────────────────────────────────────────────────────────────
+
+enum Plan {
+  FREE
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum AvatarType {
+  STOCK
+  CUSTOM
+}
+
+enum AvatarStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum VideoStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum SessionStatus {
+  ACTIVE
+  ENDED
+  FAILED
+}
+
+// ─── WORKSPACE ────────────────────────────────────────────────────────────────
+
+model Workspace {
+  id               String   @id @default(cuid())
+  name             String
+  slug             String   @unique
+  logoUrl          String?
+  plan             Plan     @default(FREE)
+  credits          Int      @default(0)
+  stripeCustomerId String?
+  stripeSubId      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  users            WorkspaceUser[]
+  avatars          Avatar[]
+  videos           Video[]
+  streamingSessions StreamingSession[]
+  apiKeys          ApiKey[]
+  widgetConfigs    WidgetConfig[]
+  invoices         Invoice[]
+
+  @@map("workspaces")
+}
+
+// ─── USERS ────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  firstName    String?
+  lastName     String?
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workspaces   WorkspaceUser[]
+
+  @@map("users")
+}
+
+model WorkspaceUser {
+  id          String        @id @default(cuid())
+  role        WorkspaceRole @default(MEMBER)
+  joinedAt    DateTime      @default(now())
+
+  userId      String
+  workspaceId String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId])
+  @@map("workspace_users")
+}
+
+// ─── AVATARS ──────────────────────────────────────────────────────────────────
+
+model Avatar {
+  id              String       @id @default(cuid())
+  heygenAvatarId  String?
+  name            String
+  thumbnailUrl    String?
+  previewVideoUrl String?
+  type            AvatarType   @default(STOCK)
+  status          AvatarStatus @default(READY)
+  sourceVideoUrl  String?      // S3 URL for custom avatar source video
+  heygenJobId     String?      // Async job tracking for custom avatar creation
+  metadata        Json?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  workspaceId     String
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  videos          Video[]
+  streamingSessions StreamingSession[]
+  widgetConfigs   WidgetConfig[]
+
+  @@map("avatars")
+}
+
+// ─── VIDEOS ───────────────────────────────────────────────────────────────────
+
+model Video {
+  id           String      @id @default(cuid())
+  heygenVideoId String?
+  title        String
+  script       String      @db.Text
+  voiceId      String?     // ElevenLabs or HeyGen voice ID
+  status       VideoStatus @default(PENDING)
+  url          String?
+  thumbnailUrl String?
+  durationSecs Int?
+  creditsCost  Int         @default(0)
+  shareToken   String?     @unique @default(cuid())
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  workspaceId  String
+  avatarId     String?
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  avatar       Avatar?   @relation(fields: [avatarId], references: [id])
+
+  @@map("videos")
+}
+
+// ─── STREAMING SESSIONS ───────────────────────────────────────────────────────
+
+model StreamingSession {
+  id            String        @id @default(cuid())
+  heygenSessionId String?
+  widgetEmbedId String?
+  status        SessionStatus @default(ACTIVE)
+  startedAt     DateTime      @default(now())
+  endedAt       DateTime?
+  durationSecs  Int?
+  creditsCost   Int           @default(0)
+  visitorId     String?       // anonymous visitor identifier
+  metadata      Json?
+
+  workspaceId   String
+  avatarId      String?
+  widgetConfigId String?
+  workspace     Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  avatar        Avatar?      @relation(fields: [avatarId], references: [id])
+  widgetConfig  WidgetConfig? @relation(fields: [widgetConfigId], references: [id])
+
+  @@map("streaming_sessions")
+}
+
+// ─── WIDGET CONFIG ────────────────────────────────────────────────────────────
+
+model WidgetConfig {
+  id              String   @id @default(cuid())
+  name            String
+  primaryColor    String   @default("#6366f1")
+  position        String   @default("bottom-right")
+  greeting        String   @default("Hi! How can I help you today?")
+  aiPersona       String   @db.Text @default("You are a helpful assistant.")
+  language        String   @default("en")
+  isActive        Boolean  @default(true)
+  allowedDomains  String[] @default([])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  workspaceId     String
+  avatarId        String?
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  avatar          Avatar?   @relation(fields: [avatarId], references: [id])
+
+  sessions        StreamingSession[]
+
+  @@map("widget_configs")
+}
+
+// ─── API KEYS ─────────────────────────────────────────────────────────────────
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  name        String
+  key         String    @unique
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("api_keys")
+}
+
+// ─── BILLING ──────────────────────────────────────────────────────────────────
+
+model Invoice {
+  id              String   @id @default(cuid())
+  stripeInvoiceId String   @unique
+  amount          Int      // cents
+  currency        String   @default("usd")
+  status          String
+  pdfUrl          String?
+  hostedUrl       String?
+  periodStart     DateTime?
+  periodEnd       DateTime?
+  createdAt       DateTime @default(now())
+
+  workspaceId     String
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("invoices")
+}
+
+model CreditTransaction {
+  id          String   @id @default(cuid())
+  amount      Int      // positive = add, negative = deduct
+  reason      String   // "video_generation", "streaming_session", "plan_renewal", "manual"
+  referenceId String?  // video ID or session ID
+  createdAt   DateTime @default(now())
+
+  workspaceId String
+
+  @@map("credit_transactions")
+}

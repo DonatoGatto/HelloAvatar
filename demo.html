@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="lt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Avatar Demo – HelloAvatar</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      min-height: 100vh;
+      font-family: 'Segoe UI', sans-serif;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .container {
+      text-align: center;
+      padding: 60px 40px;
+      max-width: 700px;
+    }
+    h1 { font-size: 2.5rem; font-weight: 700; margin-bottom: 12px; }
+    h1 span { color: #818cf8; }
+    p { color: #94a3b8; font-size: 1.1rem; margin-bottom: 40px; }
+    .badge {
+      display: inline-block;
+      background: rgba(99,102,241,0.2);
+      border: 1px solid rgba(99,102,241,0.5);
+      color: #818cf8;
+      padding: 6px 16px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      margin-bottom: 24px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 40px;
+    }
+    .feature {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .feature .icon { font-size: 1.8rem; margin-bottom: 8px; }
+    .feature h3 { font-size: 0.9rem; color: #e2e8f0; }
+    .feature p { font-size: 0.75rem; color: #64748b; margin: 0; }
+    .arrow {
+      position: fixed;
+      bottom: 120px;
+      right: 140px;
+      font-size: 1rem;
+      color: #818cf8;
+      animation: bounce 1.5s infinite;
+    }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="badge">● Live Demo</div>
+    <h1>Kalbantis <span>AI Avatara</span></h1>
+    <p>Paspausk mygtuką apačioje dešinėje ir pakalbink AI asistentą.<br>
+    Jis girdi tave ir atsako balsu realiu laiku.</p>
+
+    <div class="features">
+      <div class="feature">
+        <div class="icon">🎤</div>
+        <h3>Balso įvestis</h3>
+        <p>Kalba per mikrofoną</p>
+      </div>
+      <div class="feature">
+        <div class="icon">🤖</div>
+        <h3>GPT-4o-mini</h3>
+        <p>OpenAI AI atsakymai</p>
+      </div>
+      <div class="feature">
+        <div class="icon">🔊</div>
+        <h3>Edge TTS</h3>
+        <p>Microsoft balsas nemokamas</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow">👆 Spausk čia</div>
+
+  <!-- HelloAvatar Widget Embed -->
+  <script
+    src="http://localhost:4000/api/widget/widget.js"
+    data-api-key="ha_d7a7024d6a40d2f64cc458e1f1c9410480ad73abb7da69bc022304c977b58c3f"
+    data-widget-id="cmmnjxmbx0008skp2uxk4grt9"
+    data-title="AI Asistentas"
+    data-color="#6366f1"
+    data-position="bottom-right"
+    data-lang="lt-LT">
+  </script>
+</body>
+</html>
