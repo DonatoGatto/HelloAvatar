@@ -9,9 +9,9 @@ async function bootstrap() {
   // Global prefix
   app.setGlobalPrefix('api');
 
-  // CORS
+  // CORS – widget embed turi veikti bet kurioje svetainėje
   app.enableCors({
-    origin: [process.env.FRONTEND_URL || 'http://localhost:3000', /\.helloavatar\.io$/],
+    origin: true,
     credentials: true,
   });
 
