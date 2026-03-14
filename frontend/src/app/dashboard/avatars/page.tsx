@@ -2,9 +2,24 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { avatarsApi } from '@/lib/api';
-import { Plus, Search, Trash2, Edit3, Star, Upload, CheckCircle, Clock, XCircle, PlayCircle } from 'lucide-react';
+import { Plus, Search, Trash2, Edit3, Upload, CheckCircle, Clock, XCircle, PlayCircle, X } from 'lucide-react';
 
 type Tab = 'library' | 'stock' | 'create';
+
+const TTS_VOICES = [
+  { value: 'en-US-JennyNeural', label: '🇺🇸 Jenny (Female, EN-US)' },
+  { value: 'en-US-GuyNeural', label: '🇺🇸 Guy (Male, EN-US)' },
+  { value: 'en-US-AriaNeural', label: '🇺🇸 Aria (Female, EN-US)' },
+  { value: 'en-GB-SoniaNeural', label: '🇬🇧 Sonia (Female, EN-GB)' },
+  { value: 'en-GB-RyanNeural', label: '🇬🇧 Ryan (Male, EN-GB)' },
+  { value: 'lt-LT-OnaNeural', label: '🇱🇹 Ona (Female, LT)' },
+  { value: 'lt-LT-LeonasNeural', label: '🇱🇹 Leonas (Male, LT)' },
+  { value: 'de-DE-KatjaNeural', label: '🇩🇪 Katja (Female, DE)' },
+  { value: 'fr-FR-DeniseNeural', label: '🇫🇷 Denise (Female, FR)' },
+  { value: 'es-ES-ElviraNeural', label: '🇪🇸 Elvira (Female, ES)' },
+  { value: 'pl-PL-ZofiaNeural', label: '🇵🇱 Zofia (Female, PL)' },
+  { value: 'ru-RU-SvetlanaNeural', label: '🇷🇺 Svetlana (Female, RU)' },
+];
 
 export default function AvatarsPage() {
   const qc = useQueryClient();
@@ -13,6 +28,8 @@ export default function AvatarsPage() {
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ name: '', sourceVideoUrl: '' });
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [editAvatar, setEditAvatar] = useState<any>(null);
+  const [editForm, setEditForm] = useState({ name: '', simliEaceId: '', ttsVoice: 'en-US-JennyNeural' });
 
   const { data: myAvatars = [], isLoading: loadingMine } = useQuery({
     queryKey: ['avatars'],
@@ -50,24 +67,55 @@ export default function AvatarsPage() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: ({ id, dto }: { id: string; dto: any }) => avatarsApi.update(id, dto),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['avatars'] });
+      setEditAvatar(null);
+    },
+  });
+
+  const openEdit = (avatar: any) => {
+    setEditAvatar(avatar);
+    setEditForm({
+      name: avatar.name,
+      simliEaceId: avatar.simliEaceId || '',
+      ttsVoice: avatar.ttsVoice || 'en-US-JennyNeural',
+    });
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploadProgress(0);
 
     try {
-      const { uploadUrl, s3Url } = await avatarsApi.getUploadUrl(file.name);
-      const xhr = new XMLHttpRequest();
-      xhr.open('PUT', uploadUrl);
-      xhr.setRequestHeader('Content-Type', file.type);
-      xhr.upload.onprogress = (ev) => {
-        if (ev.lengthComputable) setUploadProgress(Math.round((ev.loaded / ev.total) * 100));
-      };
-      xhr.onload = () => {
-        setForm((f) => ({ ...f, sourceVideoUrl: s3Url }));
-        setUploadProgress(100);
-      };
-      xhr.send(file);
+      const { uploadUrl, fileUrl } = await avatarsApi.getUploadUrl(file.name);
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', uploadUrl);
+        // Include JWT so the protected endpoint accepts the request
+        const token = localStorage.getItem('ha_token');
+        if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        xhr.upload.onprogress = (ev) => {
+          if (ev.lengthComputable) setUploadProgress(Math.round((ev.loaded / ev.total) * 100));
+        };
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            setForm((f) => ({ ...f, sourceVideoUrl: fileUrl }));
+            setUploadProgress(100);
+            resolve();
+          } else {
+            reject(new Error(`Upload failed: ${xhr.statusText}`));
+          }
+        };
+        xhr.onerror = () => reject(new Error('Network error during upload'));
+        xhr.send(formData);
+      });
     } catch (err) {
       console.error('Upload failed', err);
       setUploadProgress(null);
@@ -89,6 +137,43 @@ export default function AvatarsPage() {
 
   return (
     <div className="p-8">
+      {/* EDIT MODAL */}
+      {editAvatar && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between p-5 border-b border-gray-100">
+              <h2 className="font-semibold text-gray-900">Edit avatar settings</h2>
+              <button onClick={() => setEditAvatar(null)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="label">Name</label>
+                <input className="input" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+              </div>
+              <div>
+                <label className="label">Voice</label>
+                <select className="input" value={editForm.ttsVoice} onChange={(e) => setEditForm({ ...editForm, ttsVoice: e.target.value })}>
+                  {TTS_VOICES.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
+                </select>
+                <p className="text-xs text-gray-400 mt-1">This voice is used when the widget config doesn&apos;t specify a voice.</p>
+              </div>
+              <div>
+                <label className="label">Simli Face ID <span className="text-gray-400 font-normal">(optional)</span></label>
+                <input className="input font-mono text-sm" placeholder="e.g. 5fc23ea5-8175-4a82-aaaf-cdd8c88543dc"
+                  value={editForm.simliEaceId} onChange={(e) => setEditForm({ ...editForm, simliEaceId: e.target.value })} />
+                <p className="text-xs text-gray-400 mt-1">Get a face ID from <a href="https://app.simli.com" target="_blank" className="text-brand-500 hover:underline">app.simli.com</a> by uploading a photo of this person.</p>
+              </div>
+            </div>
+            <div className="flex gap-3 p-5 border-t border-gray-100">
+              <button className="btn-primary" disabled={updateMutation.isPending}
+                onClick={() => updateMutation.mutate({ id: editAvatar.id, dto: editForm })}>
+                {updateMutation.isPending ? 'Saving...' : 'Save changes'}
+              </button>
+              <button className="btn-secondary" onClick={() => setEditAvatar(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Avatars</h1>
@@ -160,17 +245,26 @@ export default function AvatarsPage() {
                   </div>
                   <div className="p-3 flex items-center justify-between">
                     <div>
-                      <div className="font-medium text-sm text-gray-900 truncate max-w-[120px]">{avatar.name}</div>
-                      <div className={`badge mt-1 ${avatar.type === 'CUSTOM' ? 'badge-blue' : 'badge-gray'}`}>
-                        {avatar.type}
+                      <div className="font-medium text-sm text-gray-900 truncate max-w-[100px]">{avatar.name}</div>
+                      <div className="flex items-center gap-1 mt-1">
+                        <span className={`badge ${avatar.type === 'CUSTOM' ? 'badge-blue' : 'badge-gray'}`}>{avatar.type}</span>
+                        {avatar.simliEaceId
+                          ? <span className="badge badge-green" title="Simli face connected">🎭 Live</span>
+                          : <span className="badge badge-gray text-yellow-600" title="No Simli face — will use default">⚠ No face</span>
+                        }
                       </div>
                     </div>
-                    <button
-                      onClick={() => { if (confirm('Delete avatar?')) deleteMutation.mutate(avatar.id); }}
-                      className="text-gray-400 hover:text-red-500 transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button onClick={() => openEdit(avatar)} className="text-gray-400 hover:text-brand-500 transition-colors" title="Edit voice & Simli face">
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => { if (confirm('Delete avatar?')) deleteMutation.mutate(avatar.id); }}
+                        className="text-gray-400 hover:text-red-500 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}

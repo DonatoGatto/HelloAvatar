@@ -84,8 +84,7 @@ export default function SettingsPage() {
               </div>
               <div>
                 <label className="label">Workspace slug</label>
-                <input className="input" value={workspace?.slug || ''} disabled
-                  className="input bg-gray-50 text-gray-400 cursor-not-allowed" />
+                <input className="input bg-gray-50 text-gray-400 cursor-not-allowed" value={workspace?.slug || ''} disabled />
                 <p className="text-xs text-gray-400 mt-1">Slug cannot be changed</p>
               </div>
               <button

@@ -7,7 +7,7 @@ import { Response } from 'express';
 export class WidgetController {
   @Get('widget.js')
   serveWidget(@Query('v') version: string, @Res() res: Response) {
-    res.setHeader('Content-Type', 'application/javascript');
+    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
     res.setHeader('Cache-Control', 'public, max-age=300');
     res.setHeader('Access-Control-Allow-Origin', '*');
 
@@ -26,6 +26,8 @@ var HA = {
   cfg: {}, sessionId: null, color: '#6366f1',
   isThinking: false, recognition: null, isRecording: false,
   micEnabled: true, camEnabled: true, stream: null,
+  heygenSessionId: null, peerConnection: null,
+  simliWs: null, simliDataChannel: null, simliReady: false,
 
   init: function(cfg) {
     this.cfg = cfg;
@@ -61,7 +63,9 @@ var HA = {
     var btn = document.createElement('button');
     btn.id = 'ha-launcher';
     btn.title = 'Start AI video call';
-    btn.style.cssText = 'position:fixed;bottom:24px;right:24px;width:60px;height:60px;border-radius:50%;background:'+c+';border:none;cursor:pointer;box-shadow:0 4px 24px rgba(0,0,0,0.3);z-index:99995;animation:ha-ring 2.5s infinite;transition:transform .2s';
+    var posMap = {'bottom-right':'bottom:24px;right:24px','bottom-left':'bottom:24px;left:24px','top-right':'top:24px;right:24px','top-left':'top:24px;left:24px'};
+    var pos = posMap[self.cfg.position || 'bottom-right'] || 'bottom:24px;right:24px';
+    btn.style.cssText = 'position:fixed;'+pos+';width:60px;height:60px;border-radius:50%;background:'+c+';border:none;cursor:pointer;box-shadow:0 4px 24px rgba(0,0,0,0.3);z-index:99995;animation:ha-ring 2.5s infinite;transition:transform .2s';
     btn.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="white"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>';
     btn.onmouseenter = function() { btn.style.transform='scale(1.1)'; };
     btn.onmouseleave = function() { btn.style.transform=''; };
@@ -77,11 +81,11 @@ var HA = {
 
     modal.innerHTML =
       // AVATAR FULL BACKGROUND
-      '<video id="ha-av-video" autoplay playsinline muted loop style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none"></video>' +
+      '<video id="ha-av-video" autoplay playsinline style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none"></video>' +
       '<div id="ha-av-placeholder" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0f0c29,#302b63,#24243e)">' +
         '<div style="text-align:center">' +
           '<div style="width:120px;height:120px;border-radius:50%;background:'+c+';opacity:.25;margin:0 auto 20px;animation:ha-ring 2s infinite"></div>' +
-          '<div style="color:#94a3b8;font-size:14px">Connectingâ€¦</div>' +
+          '<div style="color:#94a3b8;font-size:14px">Connecting...</div>' +
         '</div>' +
       '</div>' +
       // USER PIP CAMERA
@@ -93,7 +97,7 @@ var HA = {
       '<div style="position:absolute;top:0;left:0;right:0;padding:18px 24px;background:linear-gradient(rgba(0,0,0,.7),transparent);display:flex;align-items:center;gap:12px;z-index:10">' +
         '<div style="width:10px;height:10px;border-radius:50%;background:#22c55e;animation:ha-pulse-dot 1.5s infinite"></div>' +
         '<span style="color:#fff;font-weight:600;font-size:15px" id="ha-call-title">AI Assistant</span>' +
-        '<span id="ha-call-status" style="margin-left:8px;color:rgba(255,255,255,.6);font-size:12px">Connectingâ€¦</span>' +
+        '<span id="ha-call-status" style="margin-left:8px;color:rgba(255,255,255,.6);font-size:12px">Connecting...</span>' +
       '</div>' +
       // AI SUBTITLE
       '<div id="ha-subtitle" style="display:none;position:absolute;bottom:110px;left:0;right:0;text-align:center;padding:0 40px;z-index:10">' +
@@ -103,13 +107,13 @@ var HA = {
       '<div id="ha-thinking" style="display:none;position:absolute;bottom:115px;left:50%;transform:translateX(-50%);z-index:10">' +
         '<div style="background:rgba(0,0,0,.6);border-radius:20px;padding:8px 18px;display:flex;align-items:center;gap:8px">' +
           '<div style="width:16px;height:16px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:ha-spin .7s linear infinite"></div>' +
-          '<span style="color:#fff;font-size:13px">Thinkingâ€¦</span>' +
+          '<span style="color:#fff;font-size:13px">Thinking...</span>' +
         '</div>' +
       '</div>' +
       // CONTROLS BAR
       '<div style="position:absolute;bottom:0;left:0;right:0;padding:20px 24px 28px;background:linear-gradient(transparent,rgba(0,0,0,.85));display:flex;align-items:center;justify-content:center;gap:14px;z-index:10">' +
         // Text input
-        '<input id="ha-input" type="text" placeholder="Type a messageâ€¦" autocomplete="off" style="flex:1;max-width:340px;padding:11px 18px;border-radius:28px;border:1.5px solid rgba(255,255,255,.25);background:rgba(255,255,255,.12);color:#fff;font-size:14px;outline:none;backdrop-filter:blur(6px)">' +
+        '<input id="ha-input" type="text" placeholder="Type a message..." autocomplete="off" style="flex:1;max-width:340px;padding:11px 18px;border-radius:28px;border:1.5px solid rgba(255,255,255,.25);background:rgba(255,255,255,.12);color:#fff;font-size:14px;outline:none;backdrop-filter:blur(6px)">' +
         // Mic toggle
         '<button id="ha-mic-btn" title="Toggle mic" style="width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,.15);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s">' +
           '<svg id="ha-mic-icon" width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1 1.93c-3.94-.49-7-3.85-7-7.93H2c0 4.97 3.58 9.09 8 9.92V21h4v-3.08c4.42-.82 8-4.94 8-9.92h-2c0 4.08-3.06 7.44-7 7.93V16h-2v-.07z"/></svg>' +
@@ -178,6 +182,19 @@ var HA = {
 
   _closeCall: function() {
     this._stopUserCamera();
+    // Close Simli WebRTC
+    if (this.simliWs) { try { this.simliWs.close(); } catch(e) {} this.simliWs = null; }
+    this.simliReady = false; this.simliDataChannel = null;
+    if (this.heygenSessionId) {
+      var hsid = this.heygenSessionId;
+      fetch('${apiBase}/public/streaming/heygen/stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ heygenSessionId: hsid }),
+      }).catch(function(){});
+      this.heygenSessionId = null;
+    }
+    if (this.peerConnection) { this.peerConnection.close(); this.peerConnection = null; }
     if (this.sessionId) this._endSession();
     document.getElementById('ha-call-modal').style.display = 'none';
     document.getElementById('ha-launcher').style.display = 'flex';
@@ -239,7 +256,7 @@ var HA = {
     var self = this;
     var vid = localStorage.getItem('ha_vid') || ('v_'+Math.random().toString(36).substr(2,9));
     localStorage.setItem('ha_vid', vid);
-    this._setStatus('Connectingâ€¦');
+    this._setStatus('Connecting...');
 
     fetch('${apiBase}/public/streaming/start', {
       method: 'POST',
@@ -249,16 +266,197 @@ var HA = {
     .then(function(r) { return r.json(); })
     .then(function(d) {
       self.sessionId = d.sessionId;
-      if (d.idleVideoUrl) {
+      // Only show static thumbnail if NO live avatar will load
+      if (d.idleVideoUrl && !d.simliSessionToken && !d.heygenAvatarId) {
         var v = document.getElementById('ha-av-video');
         v.src = d.idleVideoUrl;
         v.style.display = 'block';
         document.getElementById('ha-av-placeholder').style.display = 'none';
       }
-      self._setStatus('Live');
       if (d.greeting) self._showSubtitle(d.greeting, true);
+      // Start Simli WebRTC (preferred) or HeyGen streaming
+      if (d.simliSessionToken) {
+        self._setStatus('Connecting avatar...');
+        self._initSimli(d.simliSessionToken);
+      } else if (d.heygenAvatarId) {
+        self._setStatus('Connecting avatar...');
+        self._startHeygenStreaming(d.heygenAvatarId);
+      } else {
+        self._setStatus('Live');
+      }
     })
     .catch(function() { self._setStatus('Failed to connect'); });
+  },
+
+  _initSimli: function(sessionToken) {
+    var self = this;
+    self._setStatus('Loading avatar...');
+    var pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+    self.peerConnection = pc;
+
+    // Data channel for sending PCM audio to Simli
+    var dc = pc.createDataChannel('audio');
+    dc.binaryType = 'arraybuffer';
+    self.simliDataChannel = dc;
+    dc.onopen = function() { self.simliReady = true; };
+    dc.onclose = function() { self.simliReady = false; };
+
+    pc.ontrack = function(ev) {
+      if (ev.track.kind === 'video') {
+        var vid = document.getElementById('ha-av-video');
+        // Clear any static src first — srcObject and src conflict in some browsers
+        vid.pause(); vid.src = ''; vid.removeAttribute('src');
+        if (!vid.srcObject || vid.srcObject.getVideoTracks().length === 0) {
+          vid.srcObject = new MediaStream();
+        }
+        vid.srcObject.addTrack(ev.track);
+        vid.style.display = 'block';
+        document.getElementById('ha-av-placeholder').style.display = 'none';
+        vid.play().catch(function(){});
+        self._setStatus('Live ●');
+      }
+      if (ev.track.kind === 'audio') {
+        // Route Simli audio through the video element itself if possible
+        var vid2 = document.getElementById('ha-av-video');
+        if (vid2.srcObject) {
+          vid2.srcObject.addTrack(ev.track);
+        } else {
+          var a = document.getElementById('ha-simli-aud') || document.createElement('audio');
+          a.id = 'ha-simli-aud'; a.autoplay = true;
+          if (!a.parentNode) document.body.appendChild(a);
+          a.srcObject = new MediaStream([ev.track]);
+        }
+      }
+    };
+
+    var ws = new WebSocket('wss://api.simli.ai/StartWebRTCSession');
+    self.simliWs = ws;
+
+    ws.onopen = function() {
+      ws.send(JSON.stringify({ session_token: sessionToken }));
+    };
+
+    ws.onmessage = function(msg) {
+      var data;
+      try { data = JSON.parse(msg.data); } catch(e) { return; }
+      if (data.sdp) {
+        pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: data.sdp }))
+          .then(function() { return pc.createAnswer(); })
+          .then(function(ans) { return pc.setLocalDescription(ans).then(function() { return ans; }); })
+          .then(function(ans) { ws.send(JSON.stringify({ type: 'answer', sdp: ans.sdp })); });
+      } else if (data.candidate) {
+        pc.addIceCandidate(new RTCIceCandidate(data)).catch(function(){});
+      }
+    };
+
+    ws.onerror = function(e) {
+      console.warn('Simli WS error', e);
+      self._setStatus('Live');
+    };
+    ws.onclose = function() { self.simliReady = false; };
+
+    // Fallback: if Simli doesn't deliver video in 12s, just show Live status
+    setTimeout(function() {
+      var vid = document.getElementById('ha-av-video');
+      if (!vid || !vid.srcObject || vid.srcObject.getVideoTracks().length === 0) {
+        self._setStatus('Live');
+      }
+    }, 12000);
+
+    pc.onicecandidate = function(ev) {
+      if (ev.candidate && ws.readyState === 1) {
+        ws.send(JSON.stringify({ type: 'ice_candidate', candidate: ev.candidate.candidate, sdpMid: ev.candidate.sdpMid, sdpMLineIndex: ev.candidate.sdpMLineIndex }));
+      }
+    };
+  },
+
+  _sendAudioToSimli: function(audioBase64) {
+    var self = this;
+    if (!self.simliReady || !self.simliDataChannel) return false;
+    try {
+      var binary = atob(audioBase64);
+      var bytes = new Uint8Array(binary.length);
+      for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      var AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return false;
+      var ctx = new AudioCtx({ sampleRate: 16000 });
+      ctx.decodeAudioData(bytes.buffer.slice(0), function(buf) {
+        var f32 = buf.getChannelData(0);
+        var i16 = new Int16Array(f32.length);
+        for (var j = 0; j < f32.length; j++) {
+          i16[j] = Math.max(-32768, Math.min(32767, Math.round(f32[j] * 32768)));
+        }
+        var chunkSize = 6000;
+        for (var k = 0; k < i16.length; k += chunkSize) {
+          if (self.simliDataChannel && self.simliDataChannel.readyState === 'open') {
+            self.simliDataChannel.send(i16.slice(k, k + chunkSize).buffer);
+          }
+        }
+        ctx.close();
+      }, function() { ctx.close(); });
+      return true;
+    } catch(e) { return false; }
+  },
+
+  _startHeygenStreaming: function(avatarId) {
+    var self = this;
+    self._setStatus('Loading avatar...');
+
+    fetch('${apiBase}/public/streaming/heygen/new', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ avatarId: avatarId, quality: 'low' }),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (!d.session_id) throw new Error('No session_id from HeyGen');
+      self.heygenSessionId = d.session_id;
+
+      var iceServers = d.ice_servers2 || d.ice_servers || [];
+      var sdpOffer = d.sdp;
+
+      var pc = new RTCPeerConnection({ iceServers: iceServers });
+      self.peerConnection = pc;
+
+      // Add receive-only transceivers so HeyGen sends video+audio
+      pc.addTransceiver('video', { direction: 'recvonly' });
+      pc.addTransceiver('audio', { direction: 'recvonly' });
+
+      pc.ontrack = function(ev) {
+        var vid = document.getElementById('ha-av-video');
+        if (!vid.srcObject) vid.srcObject = new MediaStream();
+        vid.srcObject.addTrack(ev.track);
+        if (ev.track.kind === 'video') {
+          vid.muted = false;
+          vid.style.display = 'block';
+          document.getElementById('ha-av-placeholder').style.display = 'none';
+          self._setStatus('Live');
+        }
+      };
+
+      pc.oniceconnectionstatechange = function() {
+        if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
+          self._setStatus('Live (reconnecting...)');
+        }
+      };
+
+      return pc.setRemoteDescription(new RTCSessionDescription(sdpOffer))
+        .then(function() { return pc.createAnswer(); })
+        .then(function(answer) {
+          return pc.setLocalDescription(answer).then(function() { return answer; });
+        })
+        .then(function(answer) {
+          return fetch('${apiBase}/public/streaming/heygen/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ heygenSessionId: self.heygenSessionId, sdpAnswer: answer.sdp }),
+          });
+        });
+    })
+    .catch(function(err) {
+      console.warn('HeyGen streaming unavailable, continuing with audio only.', err);
+      self._setStatus('Live');
+    });
   },
 
   _endSession: function() {
@@ -286,8 +484,20 @@ var HA = {
     .then(function(d) {
       self._setThinking(false);
       self._showSubtitle(d.text, false);
-      if (d.audioBase64) {
+      // 1st choice: Simli WebRTC lip-sync (real-time video avatar)
+      if (d.audioBase64 && self._sendAudioToSimli(d.audioBase64)) {
+        // Simli is handling both video + audio — done
+      // 2nd choice: HeyGen streaming talk
+      } else if (self.heygenSessionId && d.text) {
+        fetch('${apiBase}/public/streaming/heygen/talk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ heygenSessionId: self.heygenSessionId, text: d.text }),
+        }).catch(function(){});
+      // 3rd choice: play MP3 audio
+      } else if (d.audioBase64) {
         self._playAudio(d.audioBase64, d.audioMime || 'audio/mpeg');
+      // 4th choice: browser TTS
       } else if (d.text) {
         self._speakFallback(d.text);
       }

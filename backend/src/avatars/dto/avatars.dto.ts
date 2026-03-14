@@ -19,6 +19,16 @@ export class AddStockAvatarDto {
   @IsOptional()
   @IsString()
   previewVideoUrl?: string;
+
+  @ApiPropertyOptional({ description: 'Simli.ai face ID for live talking avatar' })
+  @IsOptional()
+  @IsString()
+  simliEaceId?: string;
+
+  @ApiPropertyOptional({ description: 'Edge TTS voice e.g. en-US-JennyNeural' })
+  @IsOptional()
+  @IsString()
+  ttsVoice?: string;
 }
 
 export class CreateCustomAvatarDto {
@@ -26,9 +36,19 @@ export class CreateCustomAvatarDto {
   @IsString()
   name: string;
 
-  @ApiProperty({ description: 'S3 URL of uploaded video' })
+  @ApiProperty({ description: 'URL of uploaded video' })
   @IsString()
   sourceVideoUrl: string;
+
+  @ApiPropertyOptional({ description: 'Simli.ai face ID' })
+  @IsOptional()
+  @IsString()
+  simliEaceId?: string;
+
+  @ApiPropertyOptional({ description: 'Edge TTS voice' })
+  @IsOptional()
+  @IsString()
+  ttsVoice?: string;
 }
 
 export class UpdateAvatarDto {
@@ -36,4 +56,19 @@ export class UpdateAvatarDto {
   @IsOptional()
   @IsString()
   name?: string;
+
+  @ApiPropertyOptional({ description: 'Simli.ai face ID for live talking avatar' })
+  @IsOptional()
+  @IsString()
+  simliEaceId?: string;
+
+  @ApiPropertyOptional({ description: 'Edge TTS voice e.g. en-US-JennyNeural' })
+  @IsOptional()
+  @IsString()
+  ttsVoice?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  thumbnailUrl?: string;
 }

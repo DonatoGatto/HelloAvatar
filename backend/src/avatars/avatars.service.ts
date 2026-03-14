@@ -1,7 +1,6 @@
-import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { HeygenService } from '../heygen/heygen.service';
-import { S3Service } from '../s3/s3.service';
 import { CreateCustomAvatarDto, UpdateAvatarDto, AddStockAvatarDto } from './dto/avatars.dto';
 
 @Injectable()
@@ -11,7 +10,6 @@ export class AvatarsService {
   constructor(
     private prisma: PrismaService,
     private heygen: HeygenService,
-    private s3: S3Service,
   ) {}
 
   // ─── STOCK AVATARS ────────────────────────────────────────────────────────
@@ -28,6 +26,8 @@ export class AvatarsService {
         name: dto.name,
         thumbnailUrl: dto.thumbnailUrl,
         previewVideoUrl: dto.previewVideoUrl,
+        simliEaceId: dto.simliEaceId,
+        ttsVoice: dto.ttsVoice,
         type: 'STOCK',
         status: 'READY',
       },
@@ -53,11 +53,16 @@ export class AvatarsService {
 
   // ─── CUSTOM AVATAR ────────────────────────────────────────────────────────
 
-  async getUploadUrl(workspaceId: string, fileName: string) {
-    const key = `avatars/${workspaceId}/${Date.now()}-${fileName}`;
-    const presignedUrl = await this.s3.getPresignedUploadUrl(key, 'video/mp4');
-    const s3Url = `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
-    return { uploadUrl: presignedUrl, s3Url };
+  async getUploadUrl(_workspaceId: string, fileName: string) {
+    const safe = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const storedName = `${Date.now()}-${safe}`;
+    // BACKEND_URL may be e.g. "http://localhost:4000/api" or "http://localhost:4000"
+    const apiUrl = (process.env.BACKEND_URL || 'http://localhost:4000/api').replace(/\/$/, '');
+    // Strip trailing /api to get the base origin for static files
+    const origin = apiUrl.replace(/\/api$/, '');
+    const uploadUrl = `${apiUrl}/avatars/upload?fileName=${encodeURIComponent(storedName)}`;
+    const fileUrl = `${origin}/uploads/${storedName}`;
+    return { uploadUrl, fileUrl };
   }
 
   async createCustomAvatar(workspaceId: string, dto: CreateCustomAvatarDto) {
@@ -81,6 +86,8 @@ export class AvatarsService {
           heygenAvatarId: result.avatar_id,
           heygenJobId: result.job_id,
           status: 'PROCESSING',
+          simliEaceId: dto.simliEaceId,
+          ttsVoice: dto.ttsVoice,
         },
       });
     } catch (err) {
@@ -125,7 +132,12 @@ export class AvatarsService {
     await this.findOne(workspaceId, avatarId);
     return this.prisma.avatar.update({
       where: { id: avatarId },
-      data: { name: dto.name },
+      data: {
+        ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.simliEaceId !== undefined && { simliEaceId: dto.simliEaceId }),
+        ...(dto.ttsVoice !== undefined && { ttsVoice: dto.ttsVoice }),
+        ...(dto.thumbnailUrl !== undefined && { thumbnailUrl: dto.thumbnailUrl }),
+      },
     });
   }
 

@@ -1,11 +1,25 @@
 'use client';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { streamingApi, avatarsApi } from '@/lib/api';
-import { Plus, Copy, Trash2, Edit3, Check, MessageSquare, Code2, Settings2 } from 'lucide-react';
+import { streamingApi, avatarsApi, apiKeysApi } from '@/lib/api';
+import { Plus, Copy, Trash2, Check, MessageSquare, Code2, Mic } from 'lucide-react';
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://yourplatform.com';
-const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'https://yourplatform.com';
+const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:4000';
+
+const TTS_VOICES = [
+  { value: 'en-US-JennyNeural', label: '🇺🇸 Jenny (Female, EN-US)' },
+  { value: 'en-US-GuyNeural', label: '🇺🇸 Guy (Male, EN-US)' },
+  { value: 'en-US-AriaNeural', label: '🇺🇸 Aria (Female, EN-US)' },
+  { value: 'en-GB-SoniaNeural', label: '🇬🇧 Sonia (Female, EN-GB)' },
+  { value: 'en-GB-RyanNeural', label: '🇬🇧 Ryan (Male, EN-GB)' },
+  { value: 'lt-LT-OnaNeural', label: '🇱🇹 Ona (Female, LT)' },
+  { value: 'lt-LT-LeonasNeural', label: '🇱🇹 Leonas (Male, LT)' },
+  { value: 'de-DE-KatjaNeural', label: '🇩🇪 Katja (Female, DE)' },
+  { value: 'fr-FR-DeniseNeural', label: '🇫🇷 Denise (Female, FR)' },
+  { value: 'es-ES-ElviraNeural', label: '🇪🇸 Elvira (Female, ES)' },
+  { value: 'pl-PL-ZofiaNeural', label: '🇵🇱 Zofia (Female, PL)' },
+  { value: 'ru-RU-SvetlanaNeural', label: '🇷🇺 Svetlana (Female, RU)' },
+];
 
 export default function LiveChatPage() {
   const qc = useQueryClient();
@@ -17,6 +31,7 @@ export default function LiveChatPage() {
     name: 'My Chat Widget', avatarId: '', primaryColor: '#6366f1',
     position: 'bottom-right', greeting: 'Hi! How can I help you today?',
     aiPersona: 'You are a helpful, friendly customer support assistant.',
+    ttsVoice: 'en-US-JennyNeural',
   });
 
   const { data: configs = [], isLoading } = useQuery({
@@ -35,6 +50,13 @@ export default function LiveChatPage() {
     queryFn: avatarsApi.getAll,
   });
 
+  const { data: apiKeys = [] } = useQuery({
+    queryKey: ['api-keys'],
+    queryFn: apiKeysApi.getAll,
+  });
+
+  const activeApiKey = (apiKeys as any[]).find((k: any) => k.isActive);
+
   const createMutation = useMutation({
     mutationFn: streamingApi.createWidget,
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['widget-configs'] }); setShowCreate(false); },
@@ -49,6 +71,7 @@ export default function LiveChatPage() {
 <script
   src="${API_URL}/api/widget/widget.js"
   data-widget-id="${config.id}"
+  data-api-key="${activeApiKey?.key || 'YOUR_API_KEY'}"
   data-color="${config.primaryColor}"
   data-position="${config.position}"
   data-title="${config.name}"
@@ -102,6 +125,12 @@ export default function LiveChatPage() {
               <select className="input" value={form.avatarId} onChange={(e) => setForm({ ...form, avatarId: e.target.value })}>
                 <option value="">Select avatar...</option>
                 {readyAvatars.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Voice</label>
+              <select className="input" value={form.ttsVoice} onChange={(e) => setForm({ ...form, ttsVoice: e.target.value })}>
+                {TTS_VOICES.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
               </select>
             </div>
             <div>
@@ -190,8 +219,8 @@ export default function LiveChatPage() {
                     </span>
                   </div>
                   <div>
-                    <span className="text-gray-500">Greeting set: </span>
-                    <span className="text-green-600">✓</span>
+                    <span className="text-gray-500">Voice: </span>
+                    <span className="text-xs font-mono truncate">{config.ttsVoice || 'en-US-JennyNeural'}</span>
                   </div>
                 </div>
               </div>
@@ -239,7 +268,14 @@ export default function LiveChatPage() {
       {/* EMBED GUIDE */}
       {tab === 'embed' && (
         <div className="max-w-2xl">
-          <h2 className="font-semibold text-gray-900 mb-4">Embed your chat widget</h2>
+          <h2 className="font-semibold text-gray-900 mb-1">Embed your chat widget</h2>
+          <p className="text-sm text-gray-500 mb-4">Copy the snippet and paste it into your client's website HTML.</p>
+
+          {!activeApiKey && (
+            <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 mb-4 text-sm text-amber-800">
+              ⚠️ You have no active API key. Go to <strong>Settings → API Keys</strong> to create one, then the embed code will appear here with the key included.
+            </div>
+          )}
 
           {(selected ? [selected] : configs).map((config: any) => (
             <div key={config.id} className="card p-5 mb-4">
@@ -260,15 +296,19 @@ export default function LiveChatPage() {
             <ol className="space-y-3 text-sm text-gray-600">
               <li className="flex gap-3">
                 <span className="w-6 h-6 bg-brand-100 text-brand-700 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">1</span>
-                Copy the snippet for your widget configuration above
+                Create an API key in <strong>Settings → API Keys</strong> if you haven&apos;t already
               </li>
               <li className="flex gap-3">
                 <span className="w-6 h-6 bg-brand-100 text-brand-700 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">2</span>
-                Paste it into your website HTML, just before the <code className="bg-gray-100 px-1 rounded">&lt;/body&gt;</code> closing tag
+                Copy the snippet for your widget above — it contains your Widget ID and API key
               </li>
               <li className="flex gap-3">
                 <span className="w-6 h-6 bg-brand-100 text-brand-700 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">3</span>
-                The chat bubble will appear in the bottom-right corner of your site
+                Paste it into your website or client&apos;s site HTML, just before the <code className="bg-gray-100 px-1 rounded">&lt;/body&gt;</code> tag
+              </li>
+              <li className="flex gap-3">
+                <span className="w-6 h-6 bg-brand-100 text-brand-700 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">4</span>
+                A chat bubble will appear — visitors click it to start a live video call with your avatar
               </li>
             </ol>
           </div>

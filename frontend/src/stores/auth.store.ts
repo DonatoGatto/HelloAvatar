@@ -41,16 +41,26 @@ export const useAuthStore = create<AuthState>()(
 
       login: async (email, password) => {
         set({ isLoading: true });
-        const data = await authApi.login({ email, password });
-        localStorage.setItem('ha_token', data.token);
-        set({ token: data.token, user: data.user, workspace: data.workspace, isLoading: false });
+        try {
+          const data = await authApi.login({ email, password });
+          localStorage.setItem('ha_token', data.token);
+          set({ token: data.token, user: data.user, workspace: data.workspace, isLoading: false });
+        } catch (err) {
+          set({ isLoading: false });
+          throw err;
+        }
       },
 
       register: async (dto) => {
         set({ isLoading: true });
-        const data = await authApi.register(dto);
-        localStorage.setItem('ha_token', data.token);
-        set({ token: data.token, user: data.user, workspace: data.workspace, isLoading: false });
+        try {
+          const data = await authApi.register(dto);
+          localStorage.setItem('ha_token', data.token);
+          set({ token: data.token, user: data.user, workspace: data.workspace, isLoading: false });
+        } catch (err) {
+          set({ isLoading: false });
+          throw err;
+        }
       },
 
       logout: () => {

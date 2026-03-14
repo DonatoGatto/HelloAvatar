@@ -39,3 +39,10 @@ backend/node_modules/@prisma/
 
 # TypeScript cache
 *.tsbuildinfo
+
+RAILWAY_ENV_VARS.txt
+backend-log.txt
+frontend-log.txt
+demo-log.txt
+check.sql
+seed-*.sql

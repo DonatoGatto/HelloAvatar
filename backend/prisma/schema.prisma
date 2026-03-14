@@ -118,6 +118,8 @@ model Avatar {
   status          AvatarStatus @default(READY)
   sourceVideoUrl  String?      // S3 URL for custom avatar source video
   heygenJobId     String?      // Async job tracking for custom avatar creation
+  simliEaceId     String?      // Simli.ai face ID for live WebRTC avatar
+  ttsVoice        String?      // Edge TTS voice e.g. en-US-JennyNeural
   metadata        Json?
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
@@ -191,6 +193,7 @@ model WidgetConfig {
   greeting        String   @default("Hi! How can I help you today?")
   aiPersona       String   @db.Text @default("You are a helpful assistant.")
   language        String   @default("en")
+  ttsVoice        String   @default("en-US-JennyNeural")
   isActive        Boolean  @default(true)
   allowedDomains  String[] @default([])
   createdAt       DateTime @default(now())
