@@ -71,6 +71,15 @@ export class StreamingPublicController {
     return this.streamingService.chat(sessionId, body.message);
   }
 
+  /** TTS-only: speak text via Edge TTS, return audio for avatar lip-sync */
+  @Post2(':sessionId/speak')
+  speak(
+    @Param2('sessionId') sessionId: string,
+    @Body2() body: { text: string },
+  ) {
+    return this.streamingService.speak(sessionId, body.text);
+  }
+
   /** End session and deduct credits */
   @Post2(':sessionId/end')
   endSession(@Param2('sessionId') id: string) {

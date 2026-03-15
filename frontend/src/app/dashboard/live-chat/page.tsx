@@ -1,8 +1,8 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { streamingApi, avatarsApi, apiKeysApi } from '@/lib/api';
-import { Plus, Copy, Trash2, Check, MessageSquare, Code2, Mic } from 'lucide-react';
+import { Plus, Copy, Trash2, Check, MessageSquare, Code2, Play, X } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:4000';
 
@@ -27,6 +27,8 @@ export default function LiveChatPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [selected, setSelected] = useState<any>(null);
   const [copied, setCopied] = useState(false);
+  const [testingWidget, setTestingWidget] = useState<any>(null);
+  const testScriptRef = useRef<HTMLScriptElement | null>(null);
   const [form, setForm] = useState({
     name: 'My Chat Widget', avatarId: '', primaryColor: '#6366f1',
     position: 'bottom-right', greeting: 'Hi! How can I help you today?',
@@ -84,6 +86,43 @@ export default function LiveChatPage() {
   };
 
   const readyAvatars = myAvatars.filter((a: any) => a.status === 'READY');
+
+  const launchTest = (config: any) => {
+    // Remove old test widget if any
+    if (testScriptRef.current) {
+      testScriptRef.current.remove();
+      testScriptRef.current = null;
+    }
+    // Remove any existing widget DOM elements
+    ['ha-launcher', 'ha-modal', 'ha-call-modal', 'ha-s-aud', 'ha-widget-root'].forEach(id => document.getElementById(id)?.remove());
+    // Reset global HA state so widget re-inits cleanly
+    if ((window as any).HA) { (window as any).HA = undefined; }
+    setTestingWidget(config);
+    // Inject widget script with cache-busting
+    const script = document.createElement('script');
+    script.src = `${API_URL}/api/widget/widget.js?v=${Date.now()}`;
+    script.setAttribute('data-widget-id', config.id);
+    script.setAttribute('data-api-key', activeApiKey?.key || '');
+    script.setAttribute('data-color', config.primaryColor);
+    script.setAttribute('data-position', 'bottom-right');
+    script.setAttribute('data-title', config.name);
+    script.onload = () => {
+      // Auto-open widget after load
+      setTimeout(() => {
+        const btn = document.getElementById('ha-launcher') as HTMLElement;
+        if (btn) btn.click();
+      }, 800);
+    };
+    document.body.appendChild(script);
+    testScriptRef.current = script;
+  };
+
+  const stopTest = () => {
+    testScriptRef.current?.remove();
+    testScriptRef.current = null;
+    ['ha-launcher', 'ha-modal', 'ha-call-modal', 'ha-s-aud'].forEach(id => document.getElementById(id)?.remove());
+    setTestingWidget(null);
+  };
 
   return (
     <div className="p-8">
@@ -197,6 +236,16 @@ export default function LiveChatPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    {testingWidget?.id === config.id ? (
+                      <button onClick={stopTest} className="btn-secondary py-1.5 px-3 text-xs gap-1 border-red-200 text-red-600 hover:bg-red-50">
+                        <X className="w-3.5 h-3.5" /> End call
+                      </button>
+                    ) : (
+                      <button onClick={() => launchTest(config)} className="btn-secondary py-1.5 px-3 text-xs gap-1 border-green-200 text-green-700 hover:bg-green-50"
+                        title={!activeApiKey ? 'Reikia API rakto — eik į Settings' : 'Skambinti'}>
+                        <Play className="w-3.5 h-3.5" /> Call
+                      </button>
+                    )}
                     <button onClick={() => { setSelected(config); setTab('embed'); }}
                       className="btn-secondary py-1.5 px-3 text-xs gap-1">
                       <Code2 className="w-3.5 h-3.5" /> Get embed code

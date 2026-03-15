@@ -3,8 +3,55 @@ import { PrismaService } from '../prisma/prisma.service';
 import { WorkspacesService } from '../workspaces/workspaces.service';
 import { HeygenService } from '../heygen/heygen.service';
 import Groq from 'groq-sdk';
-import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts';
 import axios from 'axios';
+import { spawn } from 'child_process';
+import * as ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { MsEdgeTTS } = require('msedge-tts');
+
+/** Convert any audio buffer to raw PCM s16le 16kHz mono using ffmpeg */
+function toPcm16k(inputBuffer: Buffer): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const ff = spawn(ffmpegInstaller.path, [
+      '-i', 'pipe:0',
+      '-f', 's16le',
+      '-ar', '16000',
+      '-ac', '1',
+      'pipe:1',
+    ], { stdio: ['pipe', 'pipe', 'pipe'] });
+
+    const chunks: Buffer[] = [];
+    ff.stdout.on('data', (c: Buffer) => chunks.push(c));
+    ff.stdout.on('end', () => resolve(Buffer.concat(chunks)));
+    ff.stderr.on('data', () => {}); // suppress ffmpeg logs
+    ff.on('error', reject);
+    ff.stdin.write(inputBuffer);
+    ff.stdin.end();
+  });
+}
+
+/**
+ * Microsoft Edge TTS (via msedge-tts v2) — free, no API key, high-quality neural voices.
+ * Uses lt-LT-OnaNeural by default = female Lithuanian voice.
+ * Returns MP3, then we convert to raw PCM 16kHz 16-bit mono for Simli.
+ */
+async function edgeTTS(text: string, voice = 'lt-LT-OnaNeural'): Promise<Buffer> {
+  const tts = new MsEdgeTTS();
+  await tts.setMetadata(voice, 'audio-24khz-48kbitrate-mono-mp3', {});
+  const { audioStream } = tts.toStream(text);
+  const chunks: Buffer[] = [];
+  await new Promise<void>((resolve, reject) => {
+    audioStream.on('data', (c: Buffer) => chunks.push(c));
+    audioStream.on('end', resolve);
+    audioStream.on('close', resolve);
+    audioStream.on('error', reject);
+  });
+  tts.close();
+  if (chunks.length === 0) throw new Error('Edge TTS returned no audio');
+  const mp3 = Buffer.concat(chunks);
+  // Convert MP3 → raw PCM 16kHz so Simli can process it
+  return toPcm16k(mp3);
+}
 
 @Injectable()
 export class StreamingService {
@@ -47,19 +94,23 @@ export class StreamingService {
 
     // Try to get Simli session token if API key is configured
     let simliSessionToken: string | null = null;
+    let simliE2E = false;
     if (process.env.SIMLI_API_KEY) {
       try {
-        // Priority: avatar's own simliEaceId → env SIMLI_FACE_ID → derive from thumbnail
         const avatarFaceId = (avatar as any)?.simliEaceId;
         const envFaceId = process.env.SIMLI_FACE_ID;
-        if (avatarFaceId) {
-          simliSessionToken = await this.simliGetSession(avatarFaceId);
-        } else if (envFaceId) {
-          simliSessionToken = await this.simliGetSession(envFaceId);
-        } else if (thumbnailUrl) {
-          simliSessionToken = await this.simliGetSessionFromImage(thumbnailUrl);
-        } else {
-          simliSessionToken = await this.simliGetSession('tmp9i8bbq7');
+        const faceId = avatarFaceId || envFaceId || 'tmp9i8bbq7';
+        // Use E2E session: Simli handles TTS+voice internally (no PCM pipeline needed)
+        try {
+          simliSessionToken = await this.simliGetE2ESession(faceId);
+          simliE2E = true;
+        } catch {
+          // Fallback to audio-to-video session if E2E not available
+          if (thumbnailUrl) {
+            simliSessionToken = await this.simliGetSessionFromImage(thumbnailUrl);
+          } else {
+            simliSessionToken = await this.simliGetSession(faceId);
+          }
         }
       } catch (e) {
         this.logger.warn('Simli session creation failed, continuing without: ' + e.message);
@@ -76,10 +127,12 @@ export class StreamingService {
       heygenAvatarId,
       thumbnailUrl,
       simliSessionToken,
+      simliE2E,
+      simliApiKey: simliSessionToken ? (process.env.SIMLI_API_KEY || null) : null,
     };
   }
 
-  // Main chat endpoint: user message → Groq AI → Edge TTS audio
+  // Main chat endpoint: user message → Groq AI → Google TTS audio
   async chat(sessionId: string, userMessage: string): Promise<{ text: string; audioBase64: string; audioMime: string }> {
     const session = await this.prisma.streamingSession.findUnique({
       where: { id: sessionId },
@@ -108,36 +161,55 @@ export class StreamingService {
       aiText = 'I am having trouble responding right now. Please try again.';
     }
 
-    // ── 2. Convert text to speech using Microsoft Edge TTS (free) ───────────
+    // ── 2. TTS via Edge TTS (Microsoft) → raw PCM 16kHz (Simli format) ──────────
     let audioBase64 = '';
     try {
-      const tts = new MsEdgeTTS();
-      // Priority: widget config ttsVoice → avatar ttsVoice → env EDGE_TTS_VOICE → default
-      const voice = (session.widgetConfig as any)?.ttsVoice || (session.avatar as any)?.ttsVoice || process.env.EDGE_TTS_VOICE || 'en-US-JennyNeural';
-      await tts.setMetadata(voice, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
-      const readable = tts.toStream(aiText);
-
-      const chunks: Buffer[] = [];
-      await new Promise<void>((resolve, reject) => {
-        readable.on('data', (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
-        readable.on('end', resolve);
-        readable.on('error', reject);
-      });
-      audioBase64 = Buffer.concat(chunks).toString('base64');
+      const ttsVoice = (session.widgetConfig as any)?.ttsVoice || 'lt-LT-OnaNeural';
+      const pcm = await edgeTTS(aiText, ttsVoice);
+      audioBase64 = pcm.toString('base64');
     } catch (err) {
-      this.logger.error('Edge TTS error', err?.message);
+      this.logger.error('TTS error: ' + (err?.message || String(err)));
       // Return text without audio — frontend will use Web Speech API as fallback
     }
 
-    return { text: aiText, audioBase64, audioMime: 'audio/mpeg' };
+    return { text: aiText, audioBase64, audioMime: 'audio/pcm' };
+  }
+
+  // ─── TTS-only speak (for greeting / avatar intro) ──────────────────────────
+  async speak(sessionId: string, text: string): Promise<{ audioBase64: string; audioMime: string }> {
+    const session = await this.prisma.streamingSession.findUnique({
+      where: { id: sessionId },
+      include: { widgetConfig: true, avatar: true },
+    });
+    if (!session) throw new NotFoundException('Session not found');
+    const ttsVoice = (session.widgetConfig as any)?.ttsVoice || 'lt-LT-OnaNeural';
+    let audioBase64 = '';
+    try {
+      const pcm = await edgeTTS(text, ttsVoice);
+      audioBase64 = pcm.toString('base64');
+    } catch (err) {
+      this.logger.error('TTS speak error: ' + (err?.message || String(err)));
+    }
+    return { audioBase64, audioMime: 'audio/pcm' };
   }
 
   // ─── SIMLI.AI PROXY ─────────────────────────────────────────────────────────
 
   async simliGetSession(faceId: string): Promise<string> {
+    // Use the new /compose/token endpoint (matches the simli-client SDK)
     const resp = await axios.post(
-      'https://api.simli.ai/startAudioToVideoSession',
-      { apiKey: process.env.SIMLI_API_KEY, faceId, handleSilence: true },
+      'https://api.simli.ai/compose/token',
+      { faceId, handleSilence: true, maxSessionLength: 300, maxIdleTime: 60 },
+      { headers: { 'Content-Type': 'application/json', 'x-simli-api-key': process.env.SIMLI_API_KEY }, timeout: 10000 },
+    );
+    return resp.data.session_token;
+  }
+
+  async simliGetE2ESession(faceId: string): Promise<string> {
+    const voiceId = process.env.SIMLI_VOICE_ID || 'EXAVITQu4vr4xnSDxMaL';
+    const resp = await axios.post(
+      'https://api.simli.ai/startE2ESession',
+      { apiKey: process.env.SIMLI_API_KEY, faceId, voiceId, handleSilence: true },
       { headers: { 'Content-Type': 'application/json' }, timeout: 10000 },
     );
     return resp.data.session_token;

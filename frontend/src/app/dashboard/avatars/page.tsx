@@ -227,12 +227,12 @@ export default function AvatarsPage() {
                 <div key={avatar.id} className="card overflow-hidden group">
                   <div className="relative aspect-video bg-gray-100">
                     {avatar.thumbnailUrl ? (
-                      <img src={avatar.thumbnailUrl} alt={avatar.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <span className="text-5xl">🎭</span>
-                      </div>
-                    )}
+                      <img src={avatar.thumbnailUrl} alt={avatar.name} className="w-full h-full object-cover"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display='none'; (e.target as HTMLImageElement).nextElementSibling?.removeAttribute('hidden'); }} />
+                    ) : null}
+                    <div className="w-full h-full flex items-center justify-center" hidden={!!avatar.thumbnailUrl}>
+                      <span className="text-5xl">🎭</span>
+                    </div>
                     <div className="absolute top-2 right-2 flex items-center gap-1.5 bg-black/60 rounded-full px-2 py-1">
                       {statusIcon(avatar.status)}
                       <span className="text-white text-xs">{avatar.status}</span>
