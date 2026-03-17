@@ -437,7 +437,7 @@ var HA = {
 
     /* 5 ── Open signaling WS immediately (parallel with ICE gather) */
     var wsUrl = 'wss://api.simli.ai/compose/webrtc/p2p?session_token='
-                 + encodeURIComponent(token) + '&enableSFU=true';
+                 + encodeURIComponent(token);
     var ws = new WebSocket(wsUrl);
     self.simliWs = ws;
 

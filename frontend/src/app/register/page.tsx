@@ -24,22 +24,24 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-[#09090b] flex items-center justify-center px-4 py-12 relative overflow-hidden">
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] bg-violet-600/6 rounded-full blur-[120px] pointer-events-none" />
+
+      <div className="relative w-full max-w-md">
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 mb-6">
-            <div className="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center">
+          <Link href="/" className="inline-flex items-center gap-2 mb-7">
+            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
               <span className="text-white font-black text-sm">HA</span>
             </div>
-            <span className="font-bold text-xl text-gray-900">HelloAvatar</span>
+            <span className="font-bold text-xl text-zinc-100">HelloAvatar</span>
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900">Create your workspace</h1>
-          <p className="text-gray-500 mt-1">Get 20 free credits to start</p>
+          <h1 className="text-2xl font-bold text-zinc-100">Create your workspace</h1>
+          <p className="text-zinc-500 mt-1.5 text-sm">Get 20 free credits — no card required</p>
         </div>
 
-        <div className="card p-6">
+        <div className="bg-zinc-900 border border-white/[0.07] rounded-2xl p-7 shadow-2xl">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-4">
+            <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg text-sm mb-5">
               {error}
             </div>
           )}
@@ -71,20 +73,20 @@ export default function RegisterPage() {
               <input type="password" className="input" placeholder="Min 8 characters" value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={8} />
             </div>
-            <button type="submit" className="btn-primary w-full py-2.5 text-base" disabled={isLoading}>
-              {isLoading ? 'Creating workspace...' : 'Create free account →'}
+            <button type="submit" className="btn-primary w-full py-3 text-base" disabled={isLoading}>
+              {isLoading ? 'Creating workspace...' : 'Create free workspace →'}
             </button>
           </form>
         </div>
 
-        <p className="text-center text-xs text-gray-400 mt-4">
+        <p className="text-center text-xs text-zinc-600 mt-4">
           By signing up you agree to our{' '}
-          <Link href="/terms" className="underline">Terms</Link> and{' '}
-          <Link href="/privacy" className="underline">Privacy Policy</Link>
+          <Link href="/terms" className="underline hover:text-zinc-400 transition-colors">Terms</Link> and{' '}
+          <Link href="/privacy" className="underline hover:text-zinc-400 transition-colors">Privacy Policy</Link>
         </p>
-        <p className="text-center text-sm text-gray-500 mt-3">
+        <p className="text-center text-sm text-zinc-600 mt-3">
           Already have an account?{' '}
-          <Link href="/login" className="text-brand-600 font-medium hover:underline">Sign in</Link>
+          <Link href="/login" className="text-indigo-400 font-medium hover:text-indigo-300 transition-colors">Sign in</Link>
         </p>
       </div>
     </div>

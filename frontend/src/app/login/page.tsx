@@ -22,26 +22,29 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-[#09090b] flex items-center justify-center px-4 relative overflow-hidden">
+      {/* Background glow */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-indigo-600/8 rounded-full blur-[100px] pointer-events-none" />
+
+      <div className="relative w-full max-w-md">
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 mb-6">
-            <div className="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center">
+          <Link href="/" className="inline-flex items-center gap-2 mb-7 group">
+            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
               <span className="text-white font-black text-sm">HA</span>
             </div>
-            <span className="font-bold text-xl text-gray-900">HelloAvatar</span>
+            <span className="font-bold text-xl text-zinc-100">HelloAvatar</span>
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900">Welcome back</h1>
-          <p className="text-gray-500 mt-1">Sign in to your workspace</p>
+          <h1 className="text-2xl font-bold text-zinc-100">Welcome back</h1>
+          <p className="text-zinc-500 mt-1.5 text-sm">Sign in to your workspace</p>
         </div>
 
-        <div className="card p-6">
+        <div className="bg-zinc-900 border border-white/[0.07] rounded-2xl p-7 shadow-2xl">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-4">
+            <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg text-sm mb-5">
               {error}
             </div>
           )}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="label">Email</label>
               <input
@@ -64,15 +67,15 @@ export default function LoginPage() {
                 required
               />
             </div>
-            <button type="submit" className="btn-primary w-full py-2.5" disabled={isLoading}>
+            <button type="submit" className="btn-primary w-full py-3 text-base" disabled={isLoading}>
               {isLoading ? 'Signing in...' : 'Sign in'}
             </button>
           </form>
         </div>
 
-        <p className="text-center text-sm text-gray-500 mt-4">
+        <p className="text-center text-sm text-zinc-600 mt-5">
           Don&apos;t have an account?{' '}
-          <Link href="/register" className="text-brand-600 font-medium hover:underline">Start free</Link>
+          <Link href="/register" className="text-indigo-400 font-medium hover:text-indigo-300 transition-colors">Start free</Link>
         </p>
       </div>
     </div>

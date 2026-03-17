@@ -1,8 +1,10 @@
-
-> helloavatar-frontend@1.0.0 dev
-> next dev
-
    ▲ Next.js 14.1.0
    - Local:        http://localhost:3000
    - Environments: .env.local
 
+ ✓ Ready in 2.7s
+ ○ Compiling /dashboard/avatars ...
+ ✓ Compiled /dashboard/avatars in 3.6s (841 modules)
+ ✓ Compiled in 446ms (394 modules)
+ ✓ Compiled /not-found in 474ms (832 modules)
+ ✓ Compiled / in 254ms (838 modules)

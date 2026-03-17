@@ -94,24 +94,15 @@ export class StreamingService {
 
     // Try to get Simli session token if API key is configured
     let simliSessionToken: string | null = null;
-    let simliE2E = false;
+    let simliE2E = false; // always use compose (audio-to-video) mode — E2E uses different WS URL
     if (process.env.SIMLI_API_KEY) {
       try {
-        const avatarFaceId = (avatar as any)?.simliEaceId;
+        const widgetFaceId = (widgetConfig as any)?.simliFaceId;
+        const avatarFaceId = avatar?.simliEaceId;
         const envFaceId = process.env.SIMLI_FACE_ID;
-        const faceId = avatarFaceId || envFaceId || 'tmp9i8bbq7';
-        // Use E2E session: Simli handles TTS+voice internally (no PCM pipeline needed)
-        try {
-          simliSessionToken = await this.simliGetE2ESession(faceId);
-          simliE2E = true;
-        } catch {
-          // Fallback to audio-to-video session if E2E not available
-          if (thumbnailUrl) {
-            simliSessionToken = await this.simliGetSessionFromImage(thumbnailUrl);
-          } else {
-            simliSessionToken = await this.simliGetSession(faceId);
-          }
-        }
+        const faceId = widgetFaceId || avatarFaceId || envFaceId || 'tmp9i8bbq7';
+        // Always use compose/token — widget WS connects to /compose/webrtc/p2p
+        simliSessionToken = await this.simliGetSession(faceId);
       } catch (e) {
         this.logger.warn('Simli session creation failed, continuing without: ' + e.message);
       }
@@ -290,7 +281,14 @@ export class StreamingService {
   }
 
   async createWidgetConfig(workspaceId: string, data: any) {
-    return this.prisma.widgetConfig.create({ data: { ...data, workspaceId } });
+    const { avatarId, ...rest } = data;
+    return this.prisma.widgetConfig.create({
+      data: {
+        ...rest,
+        workspaceId,
+        ...(avatarId ? { avatarId } : {}),
+      },
+    });
   }
 
   async updateWidgetConfig(workspaceId: string, id: string, data: any) {

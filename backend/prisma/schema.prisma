@@ -194,6 +194,7 @@ model WidgetConfig {
   aiPersona       String   @db.Text @default("You are a helpful assistant.")
   language        String   @default("en")
   ttsVoice        String   @default("en-US-JennyNeural")
+  simliFaceId     String?
   isActive        Boolean  @default(true)
   allowedDomains  String[] @default([])
   createdAt       DateTime @default(now())

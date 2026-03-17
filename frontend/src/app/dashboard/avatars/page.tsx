@@ -36,10 +36,18 @@ export default function AvatarsPage() {
     queryFn: avatarsApi.getAll,
   });
 
-  const { data: stockAvatars = [], isLoading: loadingStock } = useQuery({
+  const { data: rawStock = [], isLoading: loadingStock } = useQuery({
     queryKey: ['stock-avatars'],
     queryFn: avatarsApi.getStock,
     enabled: tab === 'stock',
+    select: (data: any[]) => {
+      const seen = new Set();
+      return data.filter((a) => {
+        if (seen.has(a.avatar_id)) return false;
+        seen.add(a.avatar_id);
+        return true;
+      });
+    },
   });
 
   const addStockMutation = useMutation({
@@ -128,10 +136,10 @@ export default function AvatarsPage() {
 
   const statusIcon = (status: string) => {
     switch (status) {
-      case 'READY': return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case 'PROCESSING': return <Clock className="w-4 h-4 text-yellow-500 animate-spin" />;
-      case 'FAILED': return <XCircle className="w-4 h-4 text-red-500" />;
-      default: return <Clock className="w-4 h-4 text-gray-400" />;
+      case 'READY': return <CheckCircle className="w-4 h-4 text-emerald-400" />;
+      case 'PROCESSING': return <Clock className="w-4 h-4 text-amber-400 animate-spin" />;
+      case 'FAILED': return <XCircle className="w-4 h-4 text-red-400" />;
+      default: return <Clock className="w-4 h-4 text-zinc-600" />;
     }
   };
 
@@ -139,11 +147,11 @@ export default function AvatarsPage() {
     <div className="p-8">
       {/* EDIT MODAL */}
       {editAvatar && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="flex items-center justify-between p-5 border-b border-gray-100">
-              <h2 className="font-semibold text-gray-900">Edit avatar settings</h2>
-              <button onClick={() => setEditAvatar(null)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-zinc-900 border border-white/[0.08] rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between p-5 border-b border-white/[0.06]">
+              <h2 className="font-semibold text-zinc-100">Edit avatar settings</h2>
+              <button onClick={() => setEditAvatar(null)} className="text-zinc-600 hover:text-zinc-300 transition-colors"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-5 space-y-4">
               <div>
@@ -155,16 +163,16 @@ export default function AvatarsPage() {
                 <select className="input" value={editForm.ttsVoice} onChange={(e) => setEditForm({ ...editForm, ttsVoice: e.target.value })}>
                   {TTS_VOICES.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
                 </select>
-                <p className="text-xs text-gray-400 mt-1">This voice is used when the widget config doesn&apos;t specify a voice.</p>
+                <p className="text-xs text-zinc-600 mt-1">This voice is used when the widget config doesn&apos;t specify a voice.</p>
               </div>
               <div>
-                <label className="label">Simli Face ID <span className="text-gray-400 font-normal">(optional)</span></label>
+                <label className="label">Simli Face ID <span className="text-zinc-600 font-normal">(optional)</span></label>
                 <input className="input font-mono text-sm" placeholder="e.g. 5fc23ea5-8175-4a82-aaaf-cdd8c88543dc"
                   value={editForm.simliEaceId} onChange={(e) => setEditForm({ ...editForm, simliEaceId: e.target.value })} />
-                <p className="text-xs text-gray-400 mt-1">Get a face ID from <a href="https://app.simli.com" target="_blank" className="text-brand-500 hover:underline">app.simli.com</a> by uploading a photo of this person.</p>
+                <p className="text-xs text-zinc-600 mt-1">Get a face ID from <a href="https://app.simli.com" target="_blank" className="text-indigo-400 hover:text-indigo-300">app.simli.com</a> by uploading a photo of this person.</p>
               </div>
             </div>
-            <div className="flex gap-3 p-5 border-t border-gray-100">
+            <div className="flex gap-3 p-5 border-t border-white/[0.06]">
               <button className="btn-primary" disabled={updateMutation.isPending}
                 onClick={() => updateMutation.mutate({ id: editAvatar.id, dto: editForm })}>
                 {updateMutation.isPending ? 'Saving...' : 'Save changes'}
@@ -176,8 +184,8 @@ export default function AvatarsPage() {
       )}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Avatars</h1>
-          <p className="text-gray-500 mt-1">Manage your AI avatar library</p>
+          <h1 className="text-2xl font-bold text-zinc-100">Avatars</h1>
+          <p className="text-zinc-500 mt-1">Manage your AI avatar library</p>
         </div>
         <button onClick={() => setTab('create')} className="btn-primary gap-2">
           <Plus className="w-4 h-4" /> Create avatar
@@ -185,7 +193,7 @@ export default function AvatarsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit mb-6">
+      <div className="flex gap-1 bg-zinc-900 border border-white/[0.06] rounded-xl p-1 w-fit mb-6">
         {[
           { id: 'library', label: 'My avatars' },
           { id: 'stock', label: 'Stock library' },
@@ -194,7 +202,11 @@ export default function AvatarsPage() {
           <button
             key={t.id}
             onClick={() => setTab(t.id as Tab)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === t.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              tab === t.id
+                ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/20'
+                : 'text-zinc-500 hover:text-zinc-200'
+            }`}
           >
             {t.label}
           </button>
@@ -205,27 +217,27 @@ export default function AvatarsPage() {
       {tab === 'library' && (
         <div>
           <div className="relative mb-4 max-w-sm">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-zinc-600 absolute left-3 top-1/2 -translate-y-1/2" />
             <input className="input pl-9" placeholder="Search avatars..." value={search}
               onChange={(e) => setSearch(e.target.value)} />
           </div>
 
           {loadingMine ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {[...Array(4)].map((_, i) => <div key={i} className="card p-4 animate-pulse h-48 bg-gray-100" />)}
+              {[...Array(4)].map((_, i) => <div key={i} className="card p-4 animate-pulse h-48 bg-zinc-800" />)}
             </div>
           ) : filtered.length === 0 ? (
             <div className="text-center py-16">
               <div className="text-6xl mb-4">🎭</div>
-              <h3 className="font-semibold text-gray-900 mb-2">No avatars yet</h3>
-              <p className="text-gray-500 text-sm mb-4">Add avatars from the stock library or create your own</p>
+              <h3 className="font-semibold text-zinc-200 mb-2">No avatars yet</h3>
+              <p className="text-zinc-500 text-sm mb-4">Add avatars from the stock library or create your own</p>
               <button onClick={() => setTab('stock')} className="btn-primary">Browse stock avatars</button>
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {filtered.map((avatar: any) => (
-                <div key={avatar.id} className="card overflow-hidden group">
-                  <div className="relative aspect-video bg-gray-100">
+                <div key={avatar.id} className="card overflow-hidden group hover:border-white/[0.12] transition-colors">
+                  <div className="relative aspect-video bg-zinc-800">
                     {avatar.thumbnailUrl ? (
                       <img src={avatar.thumbnailUrl} alt={avatar.name} className="w-full h-full object-cover"
                         onError={(e) => { (e.target as HTMLImageElement).style.display='none'; (e.target as HTMLImageElement).nextElementSibling?.removeAttribute('hidden'); }} />
@@ -233,11 +245,11 @@ export default function AvatarsPage() {
                     <div className="w-full h-full flex items-center justify-center" hidden={!!avatar.thumbnailUrl}>
                       <span className="text-5xl">🎭</span>
                     </div>
-                    <div className="absolute top-2 right-2 flex items-center gap-1.5 bg-black/60 rounded-full px-2 py-1">
+                    <div className="absolute top-2 right-2 flex items-center gap-1.5 bg-black/70 rounded-full px-2 py-1">
                       {statusIcon(avatar.status)}
                       <span className="text-white text-xs">{avatar.status}</span>
                     </div>
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
                       {avatar.previewVideoUrl && (
                         <PlayCircle className="w-10 h-10 text-white" />
                       )}
@@ -245,22 +257,22 @@ export default function AvatarsPage() {
                   </div>
                   <div className="p-3 flex items-center justify-between">
                     <div>
-                      <div className="font-medium text-sm text-gray-900 truncate max-w-[100px]">{avatar.name}</div>
+                      <div className="font-medium text-sm text-zinc-200 truncate max-w-[100px]">{avatar.name}</div>
                       <div className="flex items-center gap-1 mt-1">
                         <span className={`badge ${avatar.type === 'CUSTOM' ? 'badge-blue' : 'badge-gray'}`}>{avatar.type}</span>
                         {avatar.simliEaceId
                           ? <span className="badge badge-green" title="Simli face connected">🎭 Live</span>
-                          : <span className="badge badge-gray text-yellow-600" title="No Simli face — will use default">⚠ No face</span>
+                          : <span className="badge" style={{background:'rgba(234,179,8,0.1)',color:'#fbbf24',boxShadow:'0 0 0 1px rgba(234,179,8,0.2)'}} title="No Simli face">⚠ No face</span>
                         }
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <button onClick={() => openEdit(avatar)} className="text-gray-400 hover:text-brand-500 transition-colors" title="Edit voice & Simli face">
+                      <button onClick={() => openEdit(avatar)} className="text-zinc-600 hover:text-indigo-400 transition-colors" title="Edit voice & Simli face">
                         <Edit3 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => { if (confirm('Delete avatar?')) deleteMutation.mutate(avatar.id); }}
-                        className="text-gray-400 hover:text-red-500 transition-colors"
+                        className="text-zinc-600 hover:text-red-400 transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -278,19 +290,19 @@ export default function AvatarsPage() {
         <div>
           {loadingStock ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {[...Array(8)].map((_, i) => <div key={i} className="card p-4 animate-pulse h-48 bg-gray-100" />)}
+              {[...Array(8)].map((_, i) => <div key={i} className="card p-4 animate-pulse h-48 bg-zinc-800" />)}
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {(Array.isArray(stockAvatars) ? stockAvatars : []).map((avatar: any) => (
-                <div key={avatar.avatar_id} className="card overflow-hidden group">
-                  <div className="relative aspect-video bg-gray-100">
+              {(Array.isArray(rawStock) ? rawStock : []).map((avatar: any) => (
+                <div key={avatar.avatar_id} className="card overflow-hidden group hover:border-white/[0.12] transition-colors">
+                  <div className="relative aspect-video bg-zinc-800">
                     {avatar.preview_image_url && (
                       <img src={avatar.preview_image_url} alt={avatar.avatar_name} className="w-full h-full object-cover" />
                     )}
                   </div>
                   <div className="p-3 flex items-center justify-between">
-                    <div className="font-medium text-sm text-gray-900 truncate max-w-[120px]">{avatar.avatar_name}</div>
+                    <div className="font-medium text-sm text-zinc-200 truncate max-w-[120px]">{avatar.avatar_name}</div>
                     <button
                       onClick={() => addStockMutation.mutate(avatar)}
                       disabled={addStockMutation.isPending}
@@ -310,8 +322,8 @@ export default function AvatarsPage() {
       {tab === 'create' && (
         <div className="max-w-lg">
           <div className="card p-6">
-            <h2 className="font-semibold text-gray-900 mb-1">Create custom avatar</h2>
-            <p className="text-sm text-gray-500 mb-6">Upload a 2-5 minute video of yourself. Processing takes ~10 minutes.</p>
+            <h2 className="font-semibold text-zinc-100 mb-1">Create custom avatar</h2>
+            <p className="text-sm text-zinc-500 mb-6">Upload a 2-5 minute video of yourself. Processing takes ~10 minutes.</p>
 
             <div className="space-y-4">
               <div>
@@ -322,9 +334,9 @@ export default function AvatarsPage() {
 
               <div>
                 <label className="label">Video file (MP4, 2-5 min)</label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-brand-400 transition-colors">
-                  <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-500 mb-3">Drag & drop or click to upload</p>
+                <div className="border-2 border-dashed border-white/[0.08] rounded-xl p-8 text-center hover:border-indigo-500/30 transition-colors bg-zinc-800/30">
+                  <Upload className="w-8 h-8 text-zinc-500 mx-auto mb-2" />
+                  <p className="text-sm text-zinc-500 mb-3">Drag & drop or click to upload</p>
                   <input type="file" accept="video/*" className="hidden" id="avatar-upload"
                     onChange={handleFileUpload} />
                   <label htmlFor="avatar-upload" className="btn-secondary cursor-pointer">Choose file</label>
@@ -332,12 +344,12 @@ export default function AvatarsPage() {
 
                 {uploadProgress !== null && (
                   <div className="mt-3">
-                    <div className="flex justify-between text-xs text-gray-500 mb-1">
+                    <div className="flex justify-between text-xs text-zinc-500 mb-1">
                       <span>Uploading...</span>
                       <span>{uploadProgress}%</span>
                     </div>
-                    <div className="h-2 bg-gray-100 rounded-full">
-                      <div className="h-full bg-brand-500 rounded-full transition-all" style={{ width: `${uploadProgress}%` }} />
+                    <div className="h-2 bg-zinc-800 rounded-full">
+                      <div className="h-full bg-indigo-500 rounded-full transition-all" style={{ width: `${uploadProgress}%` }} />
                     </div>
                   </div>
                 )}
@@ -359,9 +371,9 @@ export default function AvatarsPage() {
             </div>
           </div>
 
-          <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <h3 className="text-sm font-semibold text-blue-900 mb-1">Tips for best results</h3>
-            <ul className="text-xs text-blue-700 space-y-1">
+          <div className="mt-4 p-4 rounded-xl border" style={{background:'rgba(99,102,241,0.05)',borderColor:'rgba(99,102,241,0.15)'}}>
+            <h3 className="text-sm font-semibold text-indigo-300 mb-2">Tips for best results</h3>
+            <ul className="text-xs text-indigo-300/60 space-y-1.5">
               <li>• Use good lighting (face clearly visible)</li>
               <li>• Speak naturally for 2-5 minutes</li>
               <li>• Stable camera, neutral background</li>
